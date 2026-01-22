@@ -27,6 +27,11 @@ class Entry extends Model
     {
         return $this->hasMany(CategoryEligible::class);
     }
+
+    public function category_nominees()
+    {
+        return $this->hasMany(CategoryNominee::class);
+    }
     
     public function parent(){
         return $this->hasOne(self::class, 'id', 'parent_id');

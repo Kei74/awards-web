@@ -21,6 +21,9 @@ Route::middleware([RedirectUnauthorizedUsers::class])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/participate/nominate', \App\Livewire\NominationVoting::class)->name('nomination.voting');
 });
+// Route::middleware('auth')->group(function () {
+//     Route::get('/participate/final-vote', \App\Livewire\FinalVoting::class)->name('final.voting');
+// });
 Route::get('/participate/voting', function () {
     return view('voting');
 });
