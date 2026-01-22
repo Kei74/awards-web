@@ -241,6 +241,7 @@
                                     $watch('search', search => {filterEligibles(); });
                                     $watch('selections', selections => {filterEligibles(); });
                                 "
+                                x-show="!{{ Js::from($this->isPastNominationVotingEndDate) }}"
                             >
                                 <!-- Search Bar -->
                                 <div class="field has-addons mb-4">
@@ -394,6 +395,14 @@
                                             ">
                                         </div>
                                     </template>
+                                </div>
+                                
+                                <!-- Message when voting period has ended -->
+                                <div class="has-text-light has-text-centered" 
+                                     x-show="{{ Js::from($this->isPastNominationVotingEndDate) }}"
+                                     style="padding: 2rem;">
+                                    <p class="title is-4 has-text-light">Nomination voting has ended</p>
+                                    <p class="subtitle is-6 has-text-light">Hiding nominees for speed as nominee voting has ended.</p>
                                 </div>
                             </div>
                             

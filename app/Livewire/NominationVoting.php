@@ -6,10 +6,12 @@ use App\Models\Category;
 use App\Models\CategoryEligible;
 use App\Models\Entry;
 use App\Models\NomineeVote;
+use App\Models\Option;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Carbon\Carbon;
 
 #[Layout('components.layouts.app')]
 class NominationVoting extends Component
@@ -105,6 +107,18 @@ class NominationVoting extends Component
     public function user()
     {
         return Auth::user();
+    }
+
+    #[Computed]
+    public function isPastNominationVotingEndDate()
+    {
+        $endDate = Option::get('nomination_voting_end_date');
+        
+        if (!$endDate) {
+            return false;
+        }
+        
+        return now()->isAfter(Carbon::parse($endDate));
     }
 
     private function canVoteMore($categoryId)
