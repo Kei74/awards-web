@@ -48,12 +48,12 @@ class FinalVoteImageController extends Controller
             
             // Image dimensions
             $imageWidth = 2000;
-            $padding = 40;
+            $padding = 20;
             $cardWidth = 320; // Increased to accommodate longer titles
             $cardImageHeight = 280;
             $cardTextHeight = 80;
             $cardHeight = $cardImageHeight + $cardTextHeight;
-            $imagePadding = 50; // Increased spacing between cards
+            $imagePadding = 80;
             $categoryHeaderHeight = 50;
             $textPadding = 20;
             $topHeaderHeight = 60;
