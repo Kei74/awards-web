@@ -71,6 +71,31 @@
                             <span>Nominate</span>
                         </a>
                     @endif
+
+                    @php
+                        $finalVotingStart = \App\Models\Option::get('final_voting_start_date');
+                        $finalVotingEnd = \App\Models\Option::get('final_voting_end_date');
+                        $now = now();
+
+                        $isFinalVotingOpen = $finalVotingStart && $finalVotingEnd
+                            ? $now->between(
+                                \Carbon\Carbon::parse($finalVotingStart),
+                                \Carbon\Carbon::parse($finalVotingEnd)
+                            )
+                            : false;
+                    @endphp
+
+                    @if($isFinalVotingOpen)
+                        <h2 class="has-text-white is-3 mt-4">
+                            Final voting is open
+                        </h2>
+                        <p class="subtitle is-4 has-text-white">
+                            Cast your votes for the best of the year!
+                        </p>
+                        <a href="/participate/final-vote" class="button is-primary is-medium">
+                            <span>Vote Now</span>
+                        </a>
+                    @endif
                         
                 </div>
             </div>

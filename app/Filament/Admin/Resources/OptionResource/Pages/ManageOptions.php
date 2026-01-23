@@ -24,6 +24,8 @@ class ManageOptions extends Page
     public $audit_channel_webhook;
     public $nomination_voting_start_date;
     public $nomination_voting_end_date;
+    public $final_voting_start_date;
+    public $final_voting_end_date;
 
     public static function canAccess(array $parameters = []): bool
     {
@@ -46,6 +48,13 @@ class ManageOptions extends Page
             \Carbon\Carbon::parse($startDate)->format('Y-m-d\TH:i') : '';
         $this->nomination_voting_end_date = $endDate ? 
             \Carbon\Carbon::parse($endDate)->format('Y-m-d\TH:i') : '';
+        
+        $finalStartDate = Option::get('final_voting_start_date', '');
+        $finalEndDate = Option::get('final_voting_end_date', '');
+        $this->final_voting_start_date = $finalStartDate ? 
+            \Carbon\Carbon::parse($finalStartDate)->format('Y-m-d\TH:i') : '';
+        $this->final_voting_end_date = $finalEndDate ? 
+            \Carbon\Carbon::parse($finalEndDate)->format('Y-m-d\TH:i') : '';
     }
 
     public function saveSettings(): void
@@ -66,6 +75,14 @@ class ManageOptions extends Page
         
         Option::set('nomination_voting_start_date', $startDate);
         Option::set('nomination_voting_end_date', $endDate);
+        
+        $finalStartDate = $this->final_voting_start_date ? 
+            (\Carbon\Carbon::parse($this->final_voting_start_date)->format('Y-m-d H:i:s')) : '';
+        $finalEndDate = $this->final_voting_end_date ? 
+            (\Carbon\Carbon::parse($this->final_voting_end_date)->format('Y-m-d H:i:s')) : '';
+        
+        Option::set('final_voting_start_date', $finalStartDate);
+        Option::set('final_voting_end_date', $finalEndDate);
 
         Notification::make()
             ->title('Settings saved successfully')
