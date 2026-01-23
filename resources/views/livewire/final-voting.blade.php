@@ -145,16 +145,19 @@
                                         
                                         {{-- Navigate to next category if available --}}
                                         if (response.original.nextCategory) {
-                                            const nextCategory = response.original.nextCategory;
-                                            // Switch group if needed
-                                            if (selectedGroup !== nextCategory.group) {
-                                                selectedGroup = nextCategory.group;
-                                            }
-                                            // Find and select the next category
-                                            const nextCat = categories[nextCategory.group]?.find(cat => cat.id === nextCategory.id);
-                                            if (nextCat) {
-                                                selectedCategory = nextCat;
-                                            }
+                                            {{-- Add a small delay before navigating to ensure vote is saved and state is updated --}}
+                                            setTimeout(() => {
+                                                const nextCategory = response.original.nextCategory;
+                                                // Switch group if needed
+                                                if (selectedGroup !== nextCategory.group) {
+                                                    selectedGroup = nextCategory.group;
+                                                }
+                                                // Find and select the next category
+                                                const nextCat = categories[nextCategory.group]?.find(cat => cat.id === nextCategory.id);
+                                                if (nextCat) {
+                                                    selectedCategory = nextCat;
+                                                }
+                                            }, 300);
                                         }
                                     } else {
                                         this.error = response.original.error;
