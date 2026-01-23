@@ -50,18 +50,17 @@ class FinalVoteImageController extends Controller
             // Image dimensions
             $imageWidth = 2000;
             $padding = 40;
-            $cardWidth = 320;
-            $cardImageHeight = 300;
-            $cardTextHeight = 100;
+            $cardWidth = 280; // Reduced from 320
+            $cardImageHeight = 250; // Reduced from 300
+            $cardTextHeight = 80; // Reduced from 100
             $cardHeight = $cardImageHeight + $cardTextHeight;
             $imagePadding = 30;
             $categoryHeaderHeight = 50;
             $textPadding = 20;
             $topHeaderHeight = 60;
             
-            // Calculate rows and columns - use 4 or 5 per row based on total count
-            $totalVotes = $selections->sum(fn($votes) => count($votes));
-            $maxPerRow = $totalVotes >= 8 ? 5 : 4;
+            // Always use 5 per row
+            $maxPerRow = 5;
             
             // Calculate total height needed
             $totalHeight = $padding + $topHeaderHeight + $padding;
@@ -121,7 +120,7 @@ class FinalVoteImageController extends Controller
             $fontPath = null;
             $headerFontSize = 24; // Reduced from 28
             $categoryFontSize = 24;
-            $entryFontSize = 18;
+            $entryFontSize = 16; // Reduced from 18 to match smaller cards
             
             // Try common system fonts
             $possibleFonts = [
@@ -310,31 +309,50 @@ class FinalVoteImageController extends Controller
                 
                 // If no image, create placeholder
                 if (!$entryImage) {
-                    $entryImage = imagecreatetruecolor($cardWidth, 300);
+                    $entryImage = imagecreatetruecolor($cardWidth, $cardImageHeight);
                     $placeholderColor = imagecolorallocate($entryImage, 45, 56, 83); // #2d3853
                     imagefill($entryImage, 0, 0, $placeholderColor);
                 }
                 
-                    // Resize entry image to fit card
-                    $entryImageWidth = imagesx($entryImage);
-                    $entryImageHeight = imagesy($entryImage);
-                    $targetWidth = $cardWidth;
-                    $targetHeight = $cardImageHeight;
+                // Resize entry image to fit card - crop to fit (maintain aspect ratio)
+                $entryImageWidth = imagesx($entryImage);
+                $entryImageHeight = imagesy($entryImage);
+                $targetWidth = $cardWidth;
+                $targetHeight = $cardImageHeight;
+                
+                // Calculate aspect ratios
+                $sourceAspect = $entryImageWidth / $entryImageHeight;
+                $targetAspect = $targetWidth / $targetHeight;
+                
+                // Determine crop dimensions to maintain aspect ratio
+                if ($sourceAspect > $targetAspect) {
+                    // Source is wider - crop width
+                    $cropHeight = $entryImageHeight;
+                    $cropWidth = (int)($entryImageHeight * $targetAspect);
+                    $srcX = (int)(($entryImageWidth - $cropWidth) / 2);
+                    $srcY = 0;
+                } else {
+                    // Source is taller - crop height
+                    $cropWidth = $entryImageWidth;
+                    $cropHeight = (int)($entryImageWidth / $targetAspect);
+                    $srcX = 0;
+                    $srcY = (int)(($entryImageHeight - $cropHeight) / 2);
+                }
+                
+                $resizedImage = @imagecreatetruecolor($targetWidth, $targetHeight);
+                if ($resizedImage !== false) {
+                    imagecopyresampled(
+                        $resizedImage, $entryImage,
+                        0, 0, $srcX, $srcY,
+                        $targetWidth, $targetHeight,
+                        $cropWidth, $cropHeight
+                    );
                     
-                    $resizedImage = @imagecreatetruecolor($targetWidth, $targetHeight);
-                    if ($resizedImage !== false) {
-                        imagecopyresampled(
-                            $resizedImage, $entryImage,
-                            0, 0, 0, 0,
-                            $targetWidth, $targetHeight,
-                            $entryImageWidth, $entryImageHeight
-                        );
-                        
-                        // Copy resized image to main canvas
-                        imagecopy($image, $resizedImage, $currentX, $currentY, 0, 0, $targetWidth, $targetHeight);
-                        
-                        imagedestroy($resizedImage);
-                    }
+                    // Copy resized image to main canvas
+                    imagecopy($image, $resizedImage, $currentX, $currentY, 0, 0, $targetWidth, $targetHeight);
+                    
+                    imagedestroy($resizedImage);
+                }
                 
                 // Draw entry name below image
                 $entryName = $entry->name;
