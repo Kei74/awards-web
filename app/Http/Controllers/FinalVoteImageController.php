@@ -340,27 +340,96 @@ class FinalVoteImageController extends Controller
                         }
                     } elseif (file_exists($resolvedImagePath)) {
                         $extension = strtolower(pathinfo($resolvedImagePath, PATHINFO_EXTENSION));
+                        $detectedType = null;
+                        
+                        // First, try to detect actual image type from file content
+                        $imageInfo = @getimagesize($resolvedImagePath);
+                        if ($imageInfo !== false && isset($imageInfo[2])) {
+                            $detectedType = $imageInfo[2]; // IMAGETYPE_* constant
+                        }
+                        
+                        // Try loading based on extension first
+                        $loaded = false;
                         switch ($extension) {
                             case 'jpg':
                             case 'jpeg':
                                 $entryImage = @imagecreatefromjpeg($resolvedImagePath);
+                                $loaded = ($entryImage !== false);
                                 break;
                             case 'png':
                                 // Suppress PNG sRGB profile warnings
                                 $entryImage = @imagecreatefrompng($resolvedImagePath);
+                                $loaded = ($entryImage !== false);
                                 break;
                             case 'gif':
                                 $entryImage = @imagecreatefromgif($resolvedImagePath);
+                                $loaded = ($entryImage !== false);
                                 break;
                             case 'webp':
                                 $entryImage = @imagecreatefromwebp($resolvedImagePath);
+                                $loaded = ($entryImage !== false);
                                 break;
                         }
+                        
+                        // If extension-based loading failed, try based on detected type
+                        if (!$loaded && $detectedType !== null) {
+                            switch ($detectedType) {
+                                case IMAGETYPE_JPEG:
+                                    $entryImage = @imagecreatefromjpeg($resolvedImagePath);
+                                    break;
+                                case IMAGETYPE_PNG:
+                                    // Suppress PNG sRGB profile warnings
+                                    $entryImage = @imagecreatefrompng($resolvedImagePath);
+                                    break;
+                                case IMAGETYPE_GIF:
+                                    $entryImage = @imagecreatefromgif($resolvedImagePath);
+                                    break;
+                                case IMAGETYPE_WEBP:
+                                    $entryImage = @imagecreatefromwebp($resolvedImagePath);
+                                    break;
+                            }
+                            
+                            if ($entryImage !== false) {
+                                \Log::info('Image loaded using detected type instead of extension', [
+                                    'path' => $resolvedImagePath,
+                                    'extension' => $extension,
+                                    'detected_type' => $detectedType,
+                                    'entry_id' => $entry->id,
+                                    'entry_name' => $entry->name,
+                                ]);
+                            }
+                        }
+                        
+                        // If still failed, try all image types as last resort
+                        if ($entryImage === false) {
+                            $types = [
+                                'PNG' => function($path) { return @imagecreatefrompng($path); },
+                                'JPEG' => function($path) { return @imagecreatefromjpeg($path); },
+                                'GIF' => function($path) { return @imagecreatefromgif($path); },
+                                'WEBP' => function($path) { return @imagecreatefromwebp($path); },
+                            ];
+                            
+                            foreach ($types as $typeName => $loader) {
+                                $entryImage = $loader($resolvedImagePath);
+                                if ($entryImage !== false) {
+                                    \Log::info('Image loaded by trying all types', [
+                                        'path' => $resolvedImagePath,
+                                        'extension' => $extension,
+                                        'successful_type' => $typeName,
+                                        'entry_id' => $entry->id,
+                                        'entry_name' => $entry->name,
+                                    ]);
+                                    break;
+                                }
+                            }
+                        }
+                        
                         if ($entryImage === false) {
                             $imageLoadError = "Failed to load image file: " . $resolvedImagePath;
-                            \Log::warning('Image file load failed', [
+                            \Log::warning('Image file load failed after all attempts', [
                                 'path' => $resolvedImagePath,
                                 'extension' => $extension,
+                                'detected_type' => $detectedType,
                                 'entry_id' => $entry->id,
                                 'entry_name' => $entry->name,
                                 'file_exists' => file_exists($resolvedImagePath),
