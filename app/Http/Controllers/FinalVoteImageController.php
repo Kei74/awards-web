@@ -51,7 +51,7 @@ class FinalVoteImageController extends Controller
             $imageWidth = 2000;
             $padding = 40;
             $cardWidth = 280; // Reduced from 320
-            $cardImageHeight = 250; // Reduced from 300
+            $cardImageHeight = 280; // Increased from 250
             $cardTextHeight = 80; // Reduced from 100
             $cardHeight = $cardImageHeight + $cardTextHeight;
             $imagePadding = 30;
@@ -258,6 +258,7 @@ class FinalVoteImageController extends Controller
                 $currentY += $categoryHeaderHeight;
             
                 // Calculate starting X for centering
+                // Always use maxPerRow (5) for the first row if there are enough items
                 $itemsInRow = min($maxPerRow, count($categoryVotes));
                 $rowWidth = ($itemsInRow * $cardWidth) + (($itemsInRow - 1) * $imagePadding);
                 $startX = ($imageWidth - $rowWidth) / 2;
@@ -267,20 +268,19 @@ class FinalVoteImageController extends Controller
                 $rowIndex = 0;
                 
                 foreach ($categoryVotes as $index => $vote) {
-                // Start new row if needed
-                if ($index > 0 && $index % $maxPerRow == 0) {
-                    $currentY = $rowStartY + $cardHeight + $imagePadding;
-                    $rowStartY = $currentY;
-                    $currentX = $startX;
-                    $rowIndex++;
-                    
-                    // Recalculate items in this row
-                    $remaining = count($categoryVotes) - $index;
-                    $itemsInRow = min($maxPerRow, $remaining);
-                    $rowWidth = ($itemsInRow * $cardWidth) + (($itemsInRow - 1) * $imagePadding);
-                    $startX = ($imageWidth - $rowWidth) / 2;
-                    $currentX = $startX;
-                }
+                    // Start new row if needed
+                    if ($index > 0 && $index % $maxPerRow == 0) {
+                        $currentY = $rowStartY + $cardHeight + $imagePadding;
+                        $rowStartY = $currentY;
+                        $rowIndex++;
+                        
+                        // Recalculate items in this row (always use maxPerRow if enough items remain)
+                        $remaining = count($categoryVotes) - $index;
+                        $itemsInRow = min($maxPerRow, $remaining);
+                        $rowWidth = ($itemsInRow * $cardWidth) + (($itemsInRow - 1) * $imagePadding);
+                        $startX = ($imageWidth - $rowWidth) / 2;
+                        $currentX = $startX;
+                    }
                 
                 $entry = $vote->entry;
                 $imagePath = $entry->image ? storage_path('app/public/' . $entry->image) : null;
