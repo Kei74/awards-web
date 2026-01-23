@@ -43,16 +43,15 @@ class FinalVoteImageController extends Controller
                 ->orderBy('order')
                 ->get();
             
-            // Get username
             $username = $user->reddit_user ?? $user->name ?? 'user';
             $headerText = "u/{$username}'s votes";
             
             // Image dimensions
             $imageWidth = 2000;
             $padding = 40;
-            $cardWidth = 280; // Reduced from 320
-            $cardImageHeight = 280; // Increased from 250
-            $cardTextHeight = 80; // Reduced from 100
+            $cardWidth = 280;
+            $cardImageHeight = 280;
+            $cardTextHeight = 80;
             $cardHeight = $cardImageHeight + $cardTextHeight;
             $imagePadding = 30;
             $categoryHeaderHeight = 50;
@@ -71,8 +70,12 @@ class FinalVoteImageController extends Controller
             $totalRows = ceil($categoriesWithVotes->count() / $maxPerRow);
             
             // Calculate total height needed
-            $totalHeight = $padding + $topHeaderHeight + $padding;
-            $totalHeight += ($totalRows * $cardHeight) + (($totalRows - 1) * $imagePadding);
+            $titleMargin = 40; // Margin between main title and votes
+            $categoryTitleHeight = 35; // Height for category title above each card
+            $totalHeight = $padding + $topHeaderHeight + $titleMargin;
+
+            $rowHeight = $categoryTitleHeight + $cardHeight;
+            $totalHeight += ($totalRows * $rowHeight) + (($totalRows - 1) * $imagePadding);
             // Add extra padding at bottom to prevent text cutoff
             $totalHeight += $padding + $cardTextHeight;
             
@@ -114,9 +117,9 @@ class FinalVoteImageController extends Controller
             
             // Try to use TTF fonts if available, otherwise use built-in
             $fontPath = null;
-            $headerFontSize = 24; // Reduced from 28
+            $headerFontSize = 24;
             $categoryFontSize = 24;
-            $entryFontSize = 16; // Reduced from 18 to match smaller cards
+            $entryFontSize = 16;
             
             // Try common system fonts
             $possibleFonts = [
@@ -145,7 +148,7 @@ class FinalVoteImageController extends Controller
             
             // Load and draw logo
             $logoPath = public_path('images/awardslogo.png');
-            $logoHeight = 60; // Height for logo (increased from 50)
+            $logoHeight = 60; // Height for logo
             $logoSpacing = 20; // Space between logo and text
             $logoX = $padding;
             $logoY = $currentY;
@@ -189,7 +192,7 @@ class FinalVoteImageController extends Controller
                 $textX = $padding;
             }
             
-            // Draw header text (left-aligned after logo) - entire title in gold
+            // Draw header text
             // Vertically center text with logo
             if ($useTTF) {
                 // Calculate text bounding box to center it vertically with logo
@@ -207,7 +210,9 @@ class FinalVoteImageController extends Controller
                 $textY = $logoCenterY - ($fontHeight / 2);
                 imagestring($image, $headerFontSize, $textX, $textY, $headerText, $goldColor);
             }
-            $currentY = $padding + $topHeaderHeight;
+            $titleMargin = 40; // Margin between main title and votes
+            $categoryTitleHeight = 35; // Height for category title above each card
+            $rowHeight = $categoryTitleHeight + $cardHeight; // Total height per row
             
             // Calculate starting X for centering (5 categories per row)
             $rowWidth = ($maxPerRow * $cardWidth) + (($maxPerRow - 1) * $imagePadding);
@@ -220,7 +225,7 @@ class FinalVoteImageController extends Controller
                     continue;
                 }
                 
-                // Get the vote for this category (should only be one)
+                // Get the vote for this category
                 $vote = $categoryVotes->first();
                 
                 // Calculate row and column position
@@ -229,7 +234,28 @@ class FinalVoteImageController extends Controller
                 
                 // Calculate X and Y positions
                 $currentX = $startX + ($col * ($cardWidth + $imagePadding));
-                $currentY = $padding + $topHeaderHeight + ($row * ($cardHeight + $imagePadding));
+                $rowStartY = $padding + $topHeaderHeight + $titleMargin + ($row * ($rowHeight + $imagePadding));
+                
+                // Draw category name above the card
+                $categoryName = $category->name;
+                $categoryTitleY = $rowStartY;
+                
+                if ($useTTF) {
+                    $bbox = imagettfbbox($categoryFontSize, 0, $fontPath, $categoryName);
+                    if ($bbox !== false) {
+                        $textWidth = $bbox[4] - $bbox[0];
+                        $textX = $currentX + ($cardWidth - $textWidth) / 2; // Center within card width
+                        $textY = $categoryTitleY + $categoryFontSize;
+                        imagettftext($image, $categoryFontSize, 0, $textX, $textY, $textColor, $fontPath, $categoryName);
+                    }
+                } else {
+                    $textWidth = imagefontwidth($categoryFontSize) * strlen($categoryName);
+                    $textX = $currentX + ($cardWidth - $textWidth) / 2; // Center within card width
+                    imagestring($image, $categoryFontSize, $textX, $categoryTitleY, $categoryName, $textColor);
+                }
+                
+                // Position card below category title
+                $currentY = $rowStartY + $categoryTitleHeight;
                 
                 $entry = $vote->entry;
                 $imagePath = $entry->image ? storage_path('app/public/' . $entry->image) : null;
