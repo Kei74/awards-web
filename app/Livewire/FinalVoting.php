@@ -148,7 +148,60 @@ class FinalVoting extends Component
         }
         $this->dispatch('vote-added');
 
-        return response()->json(['success' => 'Vote created']);
+        // Find next category/group to navigate to
+        $nextCategory = $this->getNextCategory($categoryId);
+        
+        return response()->json([
+            'success' => 'Vote created',
+            'nextCategory' => $nextCategory
+        ]);
+    }
+
+    private function getNextCategory($currentCategoryId)
+    {
+        $allCategories = Category::where('year', app('current-year'))
+            ->has('nominees')
+            ->orderBy('order')
+            ->get();
+        
+        $currentIndex = $allCategories->search(function($category) use ($currentCategoryId) {
+            return $category->id == $currentCategoryId;
+        });
+        
+        if ($currentIndex === false) {
+            return null;
+        }
+        
+        // Get next category
+        $nextCategory = $allCategories->get($currentIndex + 1);
+        
+        if (!$nextCategory) {
+            return null; // No more categories
+        }
+        
+        // Check if user has already voted in the next category
+        $hasVote = FinalVote::where('user_id', $this->user->id)
+            ->where('category_id', $nextCategory->id)
+            ->exists();
+        
+        if ($hasVote) {
+            return null; // Already voted, don't navigate
+        }
+        
+        // Map category type to group slug
+        $typeToGroup = [
+            'main' => 'main',
+            'genre' => 'genre',
+            'production' => 'production',
+            'character' => 'character',
+        ];
+        
+        $groupSlug = $typeToGroup[$nextCategory->type] ?? 'main';
+        
+        return [
+            'id' => $nextCategory->id,
+            'group' => $groupSlug,
+        ];
     }
 
     public function deleteVote($categoryId, $nomineeId, $entryId)
