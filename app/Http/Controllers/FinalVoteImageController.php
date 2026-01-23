@@ -429,8 +429,8 @@ class FinalVoteImageController extends Controller
                     }
                 }
                 
-                // Clean up
-                if ($entryImage && $imagePath && file_exists($imagePath)) {
+                // Clean up entry image resource
+                if ($entryImage) {
                     imagedestroy($entryImage);
                 }
             }
