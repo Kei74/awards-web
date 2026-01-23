@@ -314,12 +314,29 @@ class FinalVoteImageController extends Controller
                 
                 // Load entry image (local or remote)
                 $entryImage = null;
+                $imageLoadError = null;
                 if ($resolvedImagePath) {
                     if ($isRemoteImage) {
                         // Attempt to load remote image safely
                         $imageData = @file_get_contents($resolvedImagePath);
-                        if ($imageData !== false) {
+                        if ($imageData === false) {
+                            $imageLoadError = "Failed to download remote image from: " . $resolvedImagePath;
+                            \Log::warning('Image download failed', [
+                                'url' => $resolvedImagePath,
+                                'entry_id' => $entry->id,
+                                'entry_name' => $entry->name,
+                            ]);
+                        } else {
                             $entryImage = @imagecreatefromstring($imageData);
+                            if ($entryImage === false) {
+                                $imageLoadError = "Failed to parse remote image data from: " . $resolvedImagePath;
+                                \Log::warning('Image parsing failed', [
+                                    'url' => $resolvedImagePath,
+                                    'entry_id' => $entry->id,
+                                    'entry_name' => $entry->name,
+                                    'data_size' => strlen($imageData),
+                                ]);
+                            }
                         }
                     } elseif (file_exists($resolvedImagePath)) {
                         $extension = strtolower(pathinfo($resolvedImagePath, PATHINFO_EXTENSION));
@@ -339,11 +356,42 @@ class FinalVoteImageController extends Controller
                                 $entryImage = @imagecreatefromwebp($resolvedImagePath);
                                 break;
                         }
+                        if ($entryImage === false) {
+                            $imageLoadError = "Failed to load image file: " . $resolvedImagePath;
+                            \Log::warning('Image file load failed', [
+                                'path' => $resolvedImagePath,
+                                'extension' => $extension,
+                                'entry_id' => $entry->id,
+                                'entry_name' => $entry->name,
+                                'file_exists' => file_exists($resolvedImagePath),
+                            ]);
+                        }
+                    } else {
+                        $imageLoadError = "Image file does not exist: " . $resolvedImagePath;
+                        \Log::warning('Image file not found', [
+                            'path' => $resolvedImagePath,
+                            'entry_id' => $entry->id,
+                            'entry_name' => $entry->name,
+                        ]);
                     }
+                } else {
+                    $imageLoadError = "No image path resolved for entry: " . ($entry->name ?? 'Unknown');
+                    \Log::warning('No image path resolved', [
+                        'entry_id' => $entry->id,
+                        'entry_name' => $entry->name,
+                    ]);
                 }
                 
                 // If no image could be loaded, create a placeholder block
                 if (!$entryImage) {
+                    if ($imageLoadError) {
+                        \Log::error('Image load failed, using placeholder', [
+                            'error' => $imageLoadError,
+                            'entry_id' => $entry->id,
+                            'entry_name' => $entry->name,
+                            'resolved_path' => $resolvedImagePath ?? 'null',
+                        ]);
+                    }
                     $entryImage = @imagecreatetruecolor($cardWidth, $cardImageHeight);
                     if ($entryImage !== false) {
                         $placeholderColor = imagecolorallocate($entryImage, 45, 56, 83); // #2d3853
@@ -353,7 +401,7 @@ class FinalVoteImageController extends Controller
                     }
                 }
                 
-                // Resize entry image to fit card - crop to fit (maintain aspect ratio)
+                // Resize entry image to fit card - scale first, then crop to fit (maintain aspect ratio)
                 $entryImageWidth = imagesx($entryImage);
                 $entryImageHeight = imagesy($entryImage);
                 $targetWidth = $cardWidth;
@@ -363,65 +411,74 @@ class FinalVoteImageController extends Controller
                 $sourceAspect = $entryImageWidth / $entryImageHeight;
                 $targetAspect = $targetWidth / $targetHeight;
                 
-                // Determine crop dimensions to maintain aspect ratio
-                // Handle both cases: source larger than target (crop) and source smaller than target (scale up)
-                if ($sourceAspect > $targetAspect) {
-                    // Source is wider - crop width (or scale up if source is smaller)
-                    if ($entryImageHeight < $targetHeight) {
-                        // Source is smaller, scale up to fit height
-                        $cropHeight = $entryImageHeight;
-                        $cropWidth = $entryImageWidth;
-                        $srcX = 0;
-                        $srcY = 0;
-                    } else {
-                        // Source is larger, crop width
-                        $cropHeight = $entryImageHeight;
-                        $cropWidth = (int)($entryImageHeight * $targetAspect);
-                        $srcX = (int)(($entryImageWidth - $cropWidth) / 2);
-                        $srcY = 0;
-                    }
+                // Step 1: Calculate scale factor to cover the target dimensions
+                // Use the larger scale factor to ensure the image covers the entire target area
+                $scaleWidth = $targetWidth / $entryImageWidth;
+                $scaleHeight = $targetHeight / $entryImageHeight;
+                $scale = max($scaleWidth, $scaleHeight); // Use larger scale to cover entire area
+                
+                // Step 2: Calculate scaled dimensions (maintaining aspect ratio)
+                $scaledWidth = (int)($entryImageWidth * $scale);
+                $scaledHeight = (int)($entryImageHeight * $scale);
+                
+                // Step 3: Create scaled image
+                $scaledImage = @imagecreatetruecolor($scaledWidth, $scaledHeight);
+                if ($scaledImage === false) {
+                    \Log::error('Failed to create scaled image', [
+                        'entry_id' => $entry->id,
+                        'scaled_width' => $scaledWidth,
+                        'scaled_height' => $scaledHeight,
+                    ]);
+                    // Fallback: use original image
+                    $scaledImage = $entryImage;
+                    $scaledWidth = $entryImageWidth;
+                    $scaledHeight = $entryImageHeight;
                 } else {
-                    // Source is taller - crop height (or scale up if source is smaller)
-                    if ($entryImageWidth < $targetWidth) {
-                        // Source is smaller, scale up to fit width
-                        $cropWidth = $entryImageWidth;
-                        $cropHeight = $entryImageHeight;
-                        $srcX = 0;
-                        $srcY = 0;
-                    } else {
-                        // Source is larger, crop height
-                        $cropWidth = $entryImageWidth;
-                        $cropHeight = (int)($entryImageWidth / $targetAspect);
-                        $srcX = 0;
-                        $srcY = (int)(($entryImageHeight - $cropHeight) / 2);
-                    }
+                    // Enable alpha blending for PNG images
+                    imagealphablending($scaledImage, false);
+                    imagesavealpha($scaledImage, true);
+                    
+                    // Resize the image to scaled dimensions
+                    imagecopyresampled(
+                        $scaledImage, $entryImage,
+                        0, 0, 0, 0,
+                        $scaledWidth, $scaledHeight,
+                        $entryImageWidth, $entryImageHeight
+                    );
                 }
                 
-                // Ensure crop dimensions don't exceed source dimensions
-                $cropWidth = min($cropWidth, $entryImageWidth);
-                $cropHeight = min($cropHeight, $entryImageHeight);
-                $srcX = max(0, min($srcX, $entryImageWidth - $cropWidth));
-                $srcY = max(0, min($srcY, $entryImageHeight - $cropHeight));
+                // Step 4: Calculate crop position to center the image
+                // The scaled image will be larger than or equal to target in both dimensions
+                $cropX = (int)(($scaledWidth - $targetWidth) / 2);
+                $cropY = (int)(($scaledHeight - $targetHeight) / 2);
                 
+                // Ensure crop position is within bounds
+                $cropX = max(0, min($cropX, $scaledWidth - $targetWidth));
+                $cropY = max(0, min($cropY, $scaledHeight - $targetHeight));
+                
+                // Step 5: Create final resized image and crop to exact target dimensions
                 $resizedImage = @imagecreatetruecolor($targetWidth, $targetHeight);
                 if ($resizedImage !== false) {
-                    // Fill with background color first (for letterboxing/pillarboxing if image is smaller)
-                    $bgColor = imagecolorallocate($resizedImage, 45, 56, 83); // #2d3853
-                    if ($bgColor !== false) {
-                        imagefill($resizedImage, 0, 0, $bgColor);
-                    }
+                    // Enable alpha blending for PNG images
+                    imagealphablending($resizedImage, false);
+                    imagesavealpha($resizedImage, true);
                     
-                    imagecopyresampled(
-                        $resizedImage, $entryImage,
-                        0, 0, $srcX, $srcY,
-                        $targetWidth, $targetHeight,
-                        $cropWidth, $cropHeight
+                    // Copy the cropped portion from scaled image to final image
+                    imagecopy(
+                        $resizedImage, $scaledImage,
+                        0, 0, $cropX, $cropY,
+                        $targetWidth, $targetHeight
                     );
                     
                     // Copy resized image to main canvas
                     imagecopy($image, $resizedImage, $currentX, $currentY, 0, 0, $targetWidth, $targetHeight);
                     
                     imagedestroy($resizedImage);
+                }
+                
+                // Clean up scaled image if it was created separately
+                if ($scaledImage !== $entryImage) {
+                    imagedestroy($scaledImage);
                 }
                 
                 // Draw entry name below image
