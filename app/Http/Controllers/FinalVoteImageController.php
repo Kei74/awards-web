@@ -7,6 +7,7 @@ use App\Models\FinalVote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class FinalVoteImageController extends Controller
 {
@@ -278,35 +279,78 @@ class FinalVoteImageController extends Controller
                 $currentY = $rowStartY + $categoryTitleHeight;
                 
                 $entry = $vote->entry;
-                $imagePath = $entry->image ? storage_path('app/public/' . $entry->image) : null;
                 
-                // Load entry image
-                $entryImage = null;
-                if ($imagePath && file_exists($imagePath)) {
-                    $extension = strtolower(pathinfo($imagePath, PATHINFO_EXTENSION));
-                    switch ($extension) {
-                        case 'jpg':
-                        case 'jpeg':
-                            $entryImage = @imagecreatefromjpeg($imagePath);
+                // Resolve an image for the entry, falling back to parent / grandparent images if needed.
+                $resolvedImagePath = null;
+                $isRemoteImage = false;
+                if ($entry) {
+                    $candidates = [];
+                    
+                    if (!empty($entry->image)) {
+                        $candidates[] = $entry->image;
+                    }
+                    if ($entry->parent && !empty($entry->parent->image)) {
+                        $candidates[] = $entry->parent->image;
+                    }
+                    if ($entry->parent && $entry->parent->parent && !empty($entry->parent->parent->image)) {
+                        $candidates[] = $entry->parent->parent->image;
+                    }
+                    
+                    foreach ($candidates as $candidate) {
+                        // If the candidate looks like a full URL, treat it as remote.
+                        if (Str::startsWith($candidate, ['http://', 'https://'])) {
+                            $resolvedImagePath = $candidate;
+                            $isRemoteImage = true;
                             break;
-                        case 'png':
-                            // Suppress PNG sRGB profile warnings
-                            $entryImage = @imagecreatefrompng($imagePath);
+                        }
+                        
+                        $localPath = storage_path('app/public/' . ltrim($candidate, '/'));
+                        if (file_exists($localPath)) {
+                            $resolvedImagePath = $localPath;
                             break;
-                        case 'gif':
-                            $entryImage = @imagecreatefromgif($imagePath);
-                            break;
-                        case 'webp':
-                            $entryImage = @imagecreatefromwebp($imagePath);
-                            break;
+                        }
                     }
                 }
                 
-                // If no image, create placeholder
+                // Load entry image (local or remote)
+                $entryImage = null;
+                if ($resolvedImagePath) {
+                    if ($isRemoteImage) {
+                        // Attempt to load remote image safely
+                        $imageData = @file_get_contents($resolvedImagePath);
+                        if ($imageData !== false) {
+                            $entryImage = @imagecreatefromstring($imageData);
+                        }
+                    } elseif (file_exists($resolvedImagePath)) {
+                        $extension = strtolower(pathinfo($resolvedImagePath, PATHINFO_EXTENSION));
+                        switch ($extension) {
+                            case 'jpg':
+                            case 'jpeg':
+                                $entryImage = @imagecreatefromjpeg($resolvedImagePath);
+                                break;
+                            case 'png':
+                                // Suppress PNG sRGB profile warnings
+                                $entryImage = @imagecreatefrompng($resolvedImagePath);
+                                break;
+                            case 'gif':
+                                $entryImage = @imagecreatefromgif($resolvedImagePath);
+                                break;
+                            case 'webp':
+                                $entryImage = @imagecreatefromwebp($resolvedImagePath);
+                                break;
+                        }
+                    }
+                }
+                
+                // If no image could be loaded, create a placeholder block
                 if (!$entryImage) {
-                    $entryImage = imagecreatetruecolor($cardWidth, $cardImageHeight);
-                    $placeholderColor = imagecolorallocate($entryImage, 45, 56, 83); // #2d3853
-                    imagefill($entryImage, 0, 0, $placeholderColor);
+                    $entryImage = @imagecreatetruecolor($cardWidth, $cardImageHeight);
+                    if ($entryImage !== false) {
+                        $placeholderColor = imagecolorallocate($entryImage, 45, 56, 83); // #2d3853
+                        if ($placeholderColor !== false) {
+                            imagefill($entryImage, 0, 0, $placeholderColor);
+                        }
+                    }
                 }
                 
                 // Resize entry image to fit card - crop to fit (maintain aspect ratio)
