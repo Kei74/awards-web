@@ -49,16 +49,16 @@ class FinalVoteImageController extends Controller
             // Image dimensions
             $imageWidth = 2000;
             $padding = 40;
-            $cardWidth = 280;
+            $cardWidth = 320; // Increased to accommodate longer titles
             $cardImageHeight = 280;
             $cardTextHeight = 80;
             $cardHeight = $cardImageHeight + $cardTextHeight;
-            $imagePadding = 30;
+            $imagePadding = 50; // Increased spacing between cards
             $categoryHeaderHeight = 50;
             $textPadding = 20;
             $topHeaderHeight = 60;
             
-            $maxPerRow = 5;
+            $maxPerRow = 4;
             
             // Filter categories to only those with votes
             $categoriesWithVotes = $categories->filter(function($category) use ($selections) {
@@ -71,7 +71,7 @@ class FinalVoteImageController extends Controller
             
             // Calculate total height needed
             $titleMargin = 40; // Margin between main title and votes
-            $categoryTitleHeight = 35; // Height for category title above each card
+            $categoryTitleHeight = 45; // Increased height for category title above each card
             $totalHeight = $padding + $topHeaderHeight + $titleMargin;
 
             $rowHeight = $categoryTitleHeight + $cardHeight;
@@ -239,6 +239,9 @@ class FinalVoteImageController extends Controller
                 // Draw category name above the card
                 $categoryName = $category->name;
                 $categoryTitleY = $rowStartY;
+                $underlineOffset = 3; // Offset below text
+                $underlineThickness = 4; // Thickness of underline
+                $underlineRightOffset = 40; // Offset to the right from text start
                 
                 if ($useTTF) {
                     $bbox = imagettfbbox($categoryFontSize, 0, $fontPath, $categoryName);
@@ -247,11 +250,28 @@ class FinalVoteImageController extends Controller
                         $textX = $currentX + ($cardWidth - $textWidth) / 2; // Center within card width
                         $textY = $categoryTitleY + $categoryFontSize;
                         imagettftext($image, $categoryFontSize, 0, $textX, $textY, $textColor, $fontPath, $categoryName);
+                        
+                        // Draw gold underline
+                        $underlineY = $textY + $underlineOffset;
+                        $underlineStartX = $textX + $underlineRightOffset;
+                        $underlineWidth = $textWidth - $underlineRightOffset; // Shorter width due to right offset
+                        for ($i = 0; $i < $underlineThickness; $i++) {
+                            imageline($image, $underlineStartX, $underlineY + $i, $underlineStartX + $underlineWidth, $underlineY + $i, $goldColor);
+                        }
                     }
                 } else {
                     $textWidth = imagefontwidth($categoryFontSize) * strlen($categoryName);
                     $textX = $currentX + ($cardWidth - $textWidth) / 2; // Center within card width
+                    $fontHeight = imagefontheight($categoryFontSize);
                     imagestring($image, $categoryFontSize, $textX, $categoryTitleY, $categoryName, $textColor);
+                    
+                    // Draw gold underline
+                    $underlineY = $categoryTitleY + $fontHeight + $underlineOffset;
+                    $underlineStartX = $textX + $underlineRightOffset;
+                    $underlineWidth = $textWidth - $underlineRightOffset; // Shorter width due to right offset
+                    for ($i = 0; $i < $underlineThickness; $i++) {
+                        imageline($image, $underlineStartX, $underlineY + $i, $underlineStartX + $underlineWidth, $underlineY + $i, $goldColor);
+                    }
                 }
                 
                 // Position card below category title
