@@ -80,6 +80,9 @@ class FinalVoteImageController extends Controller
                 $totalHeight += ($rows * $cardHeight) + (($rows - 1) * $imagePadding);
             }
             
+            // Add extra padding at bottom to prevent text cutoff
+            $totalHeight += $padding + $cardTextHeight;
+            
             // Create image
             $image = @imagecreatetruecolor($imageWidth, $totalHeight);
             if ($image === false) {
@@ -258,9 +261,8 @@ class FinalVoteImageController extends Controller
                 $currentY += $categoryHeaderHeight;
             
                 // Calculate starting X for centering
-                // Always use maxPerRow (5) for the first row if there are enough items
-                $itemsInRow = min($maxPerRow, count($categoryVotes));
-                $rowWidth = ($itemsInRow * $cardWidth) + (($itemsInRow - 1) * $imagePadding);
+                // Always use maxPerRow (5) width for positioning, even if fewer items
+                $rowWidth = ($maxPerRow * $cardWidth) + (($maxPerRow - 1) * $imagePadding);
                 $startX = ($imageWidth - $rowWidth) / 2;
                 
                 $currentX = $startX;
@@ -273,12 +275,7 @@ class FinalVoteImageController extends Controller
                         $currentY = $rowStartY + $cardHeight + $imagePadding;
                         $rowStartY = $currentY;
                         $rowIndex++;
-                        
-                        // Recalculate items in this row (always use maxPerRow if enough items remain)
-                        $remaining = count($categoryVotes) - $index;
-                        $itemsInRow = min($maxPerRow, $remaining);
-                        $rowWidth = ($itemsInRow * $cardWidth) + (($itemsInRow - 1) * $imagePadding);
-                        $startX = ($imageWidth - $rowWidth) / 2;
+                        // Reset X position for new row (always use maxPerRow width)
                         $currentX = $startX;
                     }
                 
