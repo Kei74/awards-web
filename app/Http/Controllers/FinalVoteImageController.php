@@ -364,22 +364,53 @@ class FinalVoteImageController extends Controller
                 $targetAspect = $targetWidth / $targetHeight;
                 
                 // Determine crop dimensions to maintain aspect ratio
+                // Handle both cases: source larger than target (crop) and source smaller than target (scale up)
                 if ($sourceAspect > $targetAspect) {
-                    // Source is wider - crop width
-                    $cropHeight = $entryImageHeight;
-                    $cropWidth = (int)($entryImageHeight * $targetAspect);
-                    $srcX = (int)(($entryImageWidth - $cropWidth) / 2);
-                    $srcY = 0;
+                    // Source is wider - crop width (or scale up if source is smaller)
+                    if ($entryImageHeight < $targetHeight) {
+                        // Source is smaller, scale up to fit height
+                        $cropHeight = $entryImageHeight;
+                        $cropWidth = $entryImageWidth;
+                        $srcX = 0;
+                        $srcY = 0;
+                    } else {
+                        // Source is larger, crop width
+                        $cropHeight = $entryImageHeight;
+                        $cropWidth = (int)($entryImageHeight * $targetAspect);
+                        $srcX = (int)(($entryImageWidth - $cropWidth) / 2);
+                        $srcY = 0;
+                    }
                 } else {
-                    // Source is taller - crop height
-                    $cropWidth = $entryImageWidth;
-                    $cropHeight = (int)($entryImageWidth / $targetAspect);
-                    $srcX = 0;
-                    $srcY = (int)(($entryImageHeight - $cropHeight) / 2);
+                    // Source is taller - crop height (or scale up if source is smaller)
+                    if ($entryImageWidth < $targetWidth) {
+                        // Source is smaller, scale up to fit width
+                        $cropWidth = $entryImageWidth;
+                        $cropHeight = $entryImageHeight;
+                        $srcX = 0;
+                        $srcY = 0;
+                    } else {
+                        // Source is larger, crop height
+                        $cropWidth = $entryImageWidth;
+                        $cropHeight = (int)($entryImageWidth / $targetAspect);
+                        $srcX = 0;
+                        $srcY = (int)(($entryImageHeight - $cropHeight) / 2);
+                    }
                 }
+                
+                // Ensure crop dimensions don't exceed source dimensions
+                $cropWidth = min($cropWidth, $entryImageWidth);
+                $cropHeight = min($cropHeight, $entryImageHeight);
+                $srcX = max(0, min($srcX, $entryImageWidth - $cropWidth));
+                $srcY = max(0, min($srcY, $entryImageHeight - $cropHeight));
                 
                 $resizedImage = @imagecreatetruecolor($targetWidth, $targetHeight);
                 if ($resizedImage !== false) {
+                    // Fill with background color first (for letterboxing/pillarboxing if image is smaller)
+                    $bgColor = imagecolorallocate($resizedImage, 45, 56, 83); // #2d3853
+                    if ($bgColor !== false) {
+                        imagefill($resizedImage, 0, 0, $bgColor);
+                    }
+                    
                     imagecopyresampled(
                         $resizedImage, $entryImage,
                         0, 0, $srcX, $srcY,
