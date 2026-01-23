@@ -22,6 +22,12 @@ class NominationVoting extends Component
 
     public function mount()
     {
+        $endDate = Option::get('nomination_voting_end_date');
+        
+        if ($endDate && now()->isAfter(Carbon::parse($endDate))) {
+            abort(403, 'Nomination voting has ended.');
+        }
+        
         $this->loaded = true;
     }
 

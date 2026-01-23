@@ -58,7 +58,17 @@
                                             x-text="group.text"
                                             x-on:click="selectedGroup = group.slug">
                                     </li>
-                                </template>                                
+                                </template>
+                                <li>
+                                    <a href="/participate/final-vote/share">
+                                        <span class="icon is-small mr-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.718 3.12a2.499 2.499 0 0 1 0 1.504l6.718 3.12a2.5 2.5 0 1 1-.488.876l-6.718-3.12a2.5 2.5 0 1 1 0-3.256l6.718-3.12A2.5 2.5 0 0 1 11 2.5zm-8.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm11 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>
+                                            </svg>
+                                        </span>
+                                        Share
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -144,10 +154,14 @@
                         >
                     <template x-if="selectedCategory">
                         <div class="columns">
-                            <div class="column is-10-widescreen is-12"
+                            <div class="column is-12"
                                 x-data="{
                                     get categoryNominees() {return nominees[selectedCategory.id]},
-                                    get selectedNominees() {return selections[selectedCategory.id]??{}}
+                                    get selectedNominees() {return selections[selectedCategory.id]??{}},
+                                    get gridColumns() {
+                                        const count = this.categoryNominees?.length || 0;
+                                        return count >= 8 ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)';
+                                    }
                                     {{-- selectedNominees: [],
                                     filteredNominees: [],
                                     filterNominees() {
@@ -221,14 +235,15 @@
                                     </p>
                                 </div> --}}
                                 
-                                <small class="has-text-light mb-4" style="display: block;">
+                                {{-- <small class="has-text-light mb-4" style="display: block;">
                                     You may vote up to 5 times per category. 
                                         <span x-text="((categoryNominees?.length) + ' entries are displayed')"></span>
-                                    {{-- We strongly recommend using the search bar to look for your shows. --}}
-                                </small>
+                                     We strongly recommend using the search bar to look for your shows. 
+                                </small> --}}
                                 
                                 <!-- Entry Grid -->
-                                <div class="show-picker-entries" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem;">
+                                <div class="show-picker-entries" 
+                                     x-bind:style="`display: grid; grid-template-columns: ${gridColumns}; gap: 1rem;`">
                                     {{-- <template x-if="filteredEligibles.length>0"> --}}
                                         <template x-for="nominee in categoryNominees"
                                             x-data="{get isSelected() {return selections[selectedCategory.id]?.[this.nominee.entry_id]? true : false;}}">
@@ -365,263 +380,6 @@
                                             ">
                                         </div>
                                     </template> --}}
-                                </div>
-                            </div>
-                            
-                            <!-- Selections Sidebar -->
-                            <div class="column is-2-widescreen is-12 selection-column">
-                                <div class="panel is-primary has-background-dark">
-                                    <p class="panel-heading">My Selections</p>
-                                    <div class="panel-block">
-                                        <p class="has-text-light" 
-                                            x-text="(Object.keys(selections[selectedCategory?.id] ?? {}).length)+'/ 5 selected'">
-                                        </p>
-                                    </div>
-                                    <template x-if="Object.keys(selections[selectedCategory?.id] ?? {}).length > 0">
-                                        <template x-for="selection in Object.values(selections[selectedCategory.id]??{})" :key="selection.id">
-                                            <a class="panel-block has-text-light" 
-                                               x-on:click="removeVote(selection)"
-                                               style="cursor: pointer;">
-                                                <span class="delete"></span>
-                                                <span class="ml-2" x-text="selection.entry.name"></span>
-                                            </a>
-                                        </template>
-                                    </template>
-                                    <div class="panel-block">
-                                        <button class="button is-primary is-fullwidth"
-                                                x-data="{
-                                                    formatSelectionsForReddit() {
-                                                        let formatted = '';
-                                                        const allCategories = [];
-                                                        
-                                                        // Collect all categories from all groups
-                                                        groups.forEach(group => {
-                                                            if (categories[group.slug]) {
-                                                                categories[group.slug].forEach(category => {
-                                                                    allCategories.push(category);
-                                                                });
-                                                            }
-                                                        });
-                                                        
-                                                        // Sort categories by order if available, otherwise keep original order
-                                                        allCategories.sort((a, b) => (a.order || 0) - (b.order || 0));
-                                                        
-                                                        // Format each category with selections
-                                                        allCategories.forEach(category => {
-                                                            const categorySelections = selections[category.id] || {};
-                                                            const selectionValues = Object.values(categorySelections);
-                                                            
-                                                            if (selectionValues.length > 0) {
-                                                                formatted += `*${category.name}:*\n\n`;
-                                                                selectionValues.forEach(selection => {
-                                                                    const entry = selection.entry;
-                                                                    if (entry) {
-                                                                        formatted += ` - ${entry.name}\n`;
-                                                                    }
-                                                                });
-                                                                formatted += '\n';
-                                                            }
-                                                        });
-                                                        
-                                                        return formatted.trim();
-                                                    },
-                                                    async shareSelections() {
-                                                        const redditText = this.formatSelectionsForReddit();
-                                                        
-                                                        if (!redditText) {
-                                                            alert('No selections to share yet!');
-                                                            return;
-                                                        }
-                                                        
-                                                        if (navigator.share) {
-                                                            try {
-                                                                await navigator.share({
-                                                                    title: 'My Award Nominations',
-                                                                    text: redditText,
-                                                                });
-                                                            } catch (err) {
-                                                                if (err.name !== 'AbortError') {
-                                                                    this.copyToClipboard(redditText);
-                                                                }
-                                                            }
-                                                        } else {
-                                                            this.copyToClipboard(redditText);
-                                                        }
-                                                    },
-                                                    copyToClipboard(text) {
-                                                        navigator.clipboard.writeText(text).then(() => {
-                                                            alert('Your votes have been copied to your clipboard!');
-                                                        }).catch(() => {
-                                                            alert('Failed to copy your votes.');
-                                                        });
-                                                    }
-                                                }"
-                                                x-on:click="shareSelections()">
-                                            <span class="icon">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                    <path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.718 3.12a2.499 2.499 0 0 1 0 1.504l6.718 3.12a2.5 2.5 0 1 1-.488.876l-6.718-3.12a2.5 2.5 0 1 1 0-3.256l6.718-3.12A2.5 2.5 0 0 1 11 2.5zm-8.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm11 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>
-                                                </svg>
-                                            </span>
-                                            <span>Share</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Mobile Selections FAB and Bottom Sheet -->
-                            <div class="mobile-selections-container"
-                                 x-data="{ 
-                                     showSelections: false,
-                                     get selectionCount() {
-                                         return Object.keys(selections[selectedCategory?.id] ?? {}).length;
-                                     }
-                                 }"
-                                 x-show="selectedCategory"
-                            >
-                                <!-- Floating Action Button -->
-                                <button class="mobile-selections-fab"
-                                        x-on:click="showSelections = !showSelections"
-                                        x-bind:class="{ 'has-selections': selectionCount > 0 }"
-                                        x-bind:title="'My Selections (' + selectionCount + '/5)'">
-                                    <span x-text="selectionCount + '/5'"></span>
-                                </button>
-                                
-                                <!-- Bottom Sheet Overlay -->
-                                <div class="mobile-selections-overlay"
-                                     x-show="showSelections"
-                                     x-transition:enter="transition ease-out duration-300"
-                                     x-transition:enter-start="opacity-0"
-                                     x-transition:enter-end="opacity-100"
-                                     x-transition:leave="transition ease-in duration-200"
-                                     x-transition:leave-start="opacity-100"
-                                     x-transition:leave-end="opacity-0"
-                                     x-on:click="showSelections = false"
-                                ></div>
-                                
-                                <!-- Bottom Sheet Panel -->
-                                <div class="mobile-selections-sheet"
-                                     x-show="showSelections"
-                                     x-transition:enter="transition ease-out duration-300"
-                                     x-transition:enter-start="translate-y-full"
-                                     x-transition:enter-end="translate-y-0"
-                                     x-transition:leave="transition ease-in duration-200"
-                                     x-transition:leave-start="translate-y-0"
-                                     x-transition:leave-end="translate-y-full"
-                                     x-on:click.stop
-                                >
-                                    <div class="mobile-selections-header">
-                                        <h3 class="has-text-light">My Selections</h3>
-                                        <button class="mobile-selections-close" x-on:click="showSelections = false">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <div class="mobile-selections-content">
-                                        <div class="mobile-selections-count">
-                                            <p class="has-text-light" 
-                                               x-text="(Object.keys(selections[selectedCategory?.id] ?? {}).length)+'/ 5 selected'">
-                                            </p>
-                                        </div>
-                                        <template x-if="Object.keys(selections[selectedCategory?.id] ?? {}).length > 0">
-                                            <div class="mobile-selections-list">
-                                                <template x-for="selection in Object.values(selections[selectedCategory.id]??{})" :key="selection.id">
-                                                    <div class="mobile-selection-item" 
-                                                         x-on:click="removeVote(selection)">
-                                                        <span class="mobile-selection-name" x-text="selection.entry.name"></span>
-                                                        <button class="mobile-selection-remove">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-                                        <template x-if="Object.keys(selections[selectedCategory?.id] ?? {}).length === 0">
-                                            <div class="mobile-selections-empty">
-                                                <p class="has-text-light">No selections yet</p>
-                                            </div>
-                                        </template>
-                                        <div class="mobile-selections-share">
-                                            <button class="button is-primary is-fullwidth"
-                                                    x-data="{
-                                                        formatSelectionsForReddit() {
-                                                            let formatted = '';
-                                                            const allCategories = [];
-                                                            
-                                                            // Collect all categories from all groups
-                                                            groups.forEach(group => {
-                                                                if (categories[group.slug]) {
-                                                                    categories[group.slug].forEach(category => {
-                                                                        allCategories.push(category);
-                                                                    });
-                                                                }
-                                                            });
-                                                            
-                                                            // Sort categories by order if available, otherwise keep original order
-                                                            allCategories.sort((a, b) => (a.order || 0) - (b.order || 0));
-                                                            
-                                                            // Format each category with selections
-                                                            allCategories.forEach(category => {
-                                                                const categorySelections = selections[category.id] || {};
-                                                                const selectionValues = Object.values(categorySelections);
-                                                                
-                                                                if (selectionValues.length > 0) {
-                                                                    formatted += `*${category.name}:*\n\n`;
-                                                                    selectionValues.forEach(selection => {
-                                                                        const entry = entries[selection.entry_id];
-                                                                        if (entry) {
-                                                                            formatted += ` - ${entry.name}\n`;
-                                                                        }
-                                                                    });
-                                                                    formatted += '\n';
-                                                                }
-                                                            });
-                                                            
-                                                            return formatted.trim();
-                                                        },
-                                                        async shareSelections() {
-                                                            const redditText = this.formatSelectionsForReddit();
-                                                            
-                                                            if (!redditText) {
-                                                                alert('No selections to share yet!');
-                                                                return;
-                                                            }
-                                                            
-                                                            if (navigator.share) {
-                                                                try {
-                                                                    await navigator.share({
-                                                                        title: 'My Award Nominations',
-                                                                        text: redditText,
-                                                                    });
-                                                                } catch (err) {
-                                                                    if (err.name !== 'AbortError') {
-                                                                        this.copyToClipboard(redditText);
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                this.copyToClipboard(redditText);
-                                                            }
-                                                        },
-                                                        copyToClipboard(text) {
-                                                            navigator.clipboard.writeText(text).then(() => {
-                                                                alert('Your votes have been copied to your clipboard!');
-                                                            }).catch(() => {
-                                                                alert('Failed to copy your votes.');
-                                                            });
-                                                        }
-                                                    }"
-                                                    x-on:click="shareSelections()">
-                                                <span class="icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                        <path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.718 3.12a2.499 2.499 0 0 1 0 1.504l6.718 3.12a2.5 2.5 0 1 1-.488.876l-6.718-3.12a2.5 2.5 0 1 1 0-3.256l6.718-3.12A2.5 2.5 0 0 1 11 2.5zm-8.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm11 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>
-                                                    </svg>
-                                                </span>
-                                                <span>Share</span>
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>

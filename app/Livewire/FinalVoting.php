@@ -6,12 +6,14 @@ use App\Models\Category;
 use App\Models\CategoryNominee;
 use App\Models\Entry;
 use App\Models\FinalVote;
+use App\Models\Option;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Carbon\Carbon;
 
 #[Layout('components.layouts.app')]
 class FinalVoting extends Component
@@ -23,7 +25,12 @@ class FinalVoting extends Component
 
     public function mount()
     {
-        // TODO: Add voting open check
+        $endDate = Option::get('final_voting_end_date');
+        
+        if ($endDate && now()->isAfter(Carbon::parse($endDate))) {
+            abort(403, 'Final voting has ended.');
+        }
+        
         $this->voting_open = true;
     }
 

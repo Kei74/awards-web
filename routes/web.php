@@ -6,6 +6,8 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\ResultController;
 use App\Http\Middleware\RedirectUnauthorizedUsers;
+use App\Http\Middleware\CheckNominationVotingEndDate;
+use App\Http\Middleware\CheckFinalVotingEndDate;
 
 Route::get('/', function () {
     return view('home');
@@ -18,12 +20,16 @@ Route::get('/participate', function () {
 Route::middleware([RedirectUnauthorizedUsers::class])->group(function () {
     Route::get('/participate/application', [ApplicationController::class, 'index'])->name('application.index');
 });
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', CheckNominationVotingEndDate::class])->group(function () {
     Route::get('/participate/nominate', \App\Livewire\NominationVoting::class)->name('nomination.voting');
 });
-// Route::middleware('auth')->group(function () {
-//     Route::get('/participate/final-vote', \App\Livewire\FinalVoting::class)->name('final.voting');
-// });
+Route::middleware(['auth', CheckFinalVotingEndDate::class])->group(function () {
+     Route::get('/participate/final-vote', \App\Livewire\FinalVoting::class)->name('final.voting');
+     Route::get('/participate/final-vote/share', function () {
+         return view('final-vote-share');
+     })->name('final.voting.share');
+     Route::get('/participate/final-vote/image', [\App\Http\Controllers\FinalVoteImageController::class, 'generate'])->name('final.voting.image');
+});
 Route::get('/participate/voting', function () {
     return view('voting');
 });
