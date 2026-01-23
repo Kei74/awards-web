@@ -59,27 +59,20 @@ class FinalVoteImageController extends Controller
             $textPadding = 20;
             $topHeaderHeight = 60;
             
-            // Always use 5 per row
             $maxPerRow = 5;
+            
+            // Filter categories to only those with votes
+            $categoriesWithVotes = $categories->filter(function($category) use ($selections) {
+                $categoryVotes = $selections->get($category->id, []);
+                return !empty($categoryVotes);
+            })->values();
+            
+            // Calculate total rows needed for categories
+            $totalRows = ceil($categoriesWithVotes->count() / $maxPerRow);
             
             // Calculate total height needed
             $totalHeight = $padding + $topHeaderHeight + $padding;
-            $currentY = $padding;
-            
-            foreach ($categories as $category) {
-                $categoryVotes = $selections->get($category->id, []);
-                if (empty($categoryVotes)) {
-                    continue;
-                }
-                
-                // Add category header
-                $totalHeight += $categoryHeaderHeight;
-                
-                // Calculate rows for this category
-                $rows = ceil(count($categoryVotes) / $maxPerRow);
-                $totalHeight += ($rows * $cardHeight) + (($rows - 1) * $imagePadding);
-            }
-            
+            $totalHeight += ($totalRows * $cardHeight) + (($totalRows - 1) * $imagePadding);
             // Add extra padding at bottom to prevent text cutoff
             $totalHeight += $padding + $cardTextHeight;
             
@@ -214,70 +207,29 @@ class FinalVoteImageController extends Controller
                 $textY = $logoCenterY - ($fontHeight / 2);
                 imagestring($image, $headerFontSize, $textX, $textY, $headerText, $goldColor);
             }
-            $currentY += $topHeaderHeight;
+            $currentY = $padding + $topHeaderHeight;
             
-            foreach ($categories as $category) {
-            $categoryVotes = $selections->get($category->id, []);
-            if (empty($categoryVotes)) {
-                continue;
-            }
+            // Calculate starting X for centering (5 categories per row)
+            $rowWidth = ($maxPerRow * $cardWidth) + (($maxPerRow - 1) * $imagePadding);
+            $startX = ($imageWidth - $rowWidth) / 2;
             
-                // Draw category name
-                $categoryName = $category->name;
-                $underlineOffset = 3; // Offset below text (reduced to move up)
-                $underlineThickness = 4; // Thickness of underline (increased)
-                $underlineRightOffset = 40; // Offset to the right from text start
-                
-                if ($useTTF) {
-                    $bbox = imagettfbbox($categoryFontSize, 0, $fontPath, $categoryName);
-                    if ($bbox !== false) {
-                        $textWidth = $bbox[4] - $bbox[0];
-                        $textX = ($imageWidth - $textWidth) / 2;
-                        $textY = $currentY + $categoryFontSize;
-                        imagettftext($image, $categoryFontSize, 0, $textX, $textY, $textColor, $fontPath, $categoryName);
-                
-                        // Draw gold underline (offset to the right, shorter width)
-                        $underlineY = $textY + $underlineOffset;
-                        $underlineStartX = $textX + $underlineRightOffset;
-                        $underlineWidth = $textWidth - $underlineRightOffset; // Shorter width due to right offset
-                        for ($i = 0; $i < $underlineThickness; $i++) {
-                            imageline($image, $underlineStartX, $underlineY + $i, $underlineStartX + $underlineWidth, $underlineY + $i, $goldColor);
-                        }
-                    }
-                } else {
-                    $textWidth = imagefontwidth($categoryFontSize) * strlen($categoryName);
-                    $textX = ($imageWidth - $textWidth) / 2;
-                    $fontHeight = imagefontheight($categoryFontSize);
-                    imagestring($image, $categoryFontSize, $textX, $currentY, $categoryName, $textColor);
-                    
-                    // Draw gold underline (offset to the right, shorter width)
-                    $underlineY = $currentY + $fontHeight + $underlineOffset;
-                    $underlineStartX = $textX + $underlineRightOffset;
-                    $underlineWidth = $textWidth - $underlineRightOffset; // Shorter width due to right offset
-                    for ($i = 0; $i < $underlineThickness; $i++) {
-                        imageline($image, $underlineStartX, $underlineY + $i, $underlineStartX + $underlineWidth, $underlineY + $i, $goldColor);
-                    }
+            // Loop through categories and display one card per category
+            foreach ($categoriesWithVotes as $index => $category) {
+                $categoryVotes = $selections->get($category->id, []);
+                if (empty($categoryVotes)) {
+                    continue;
                 }
-                $currentY += $categoryHeaderHeight;
-            
-                // Calculate starting X for centering
-                // Always use maxPerRow (5) width for positioning, even if fewer items
-                $rowWidth = ($maxPerRow * $cardWidth) + (($maxPerRow - 1) * $imagePadding);
-                $startX = ($imageWidth - $rowWidth) / 2;
                 
-                $currentX = $startX;
-                $rowStartY = $currentY;
-                $rowIndex = 0;
+                // Get the vote for this category (should only be one)
+                $vote = $categoryVotes->first();
                 
-                foreach ($categoryVotes as $index => $vote) {
-                    // Start new row if needed
-                    if ($index > 0 && $index % $maxPerRow == 0) {
-                        $currentY = $rowStartY + $cardHeight + $imagePadding;
-                        $rowStartY = $currentY;
-                        $rowIndex++;
-                        // Reset X position for new row (always use maxPerRow width)
-                        $currentX = $startX;
-                    }
+                // Calculate row and column position
+                $row = (int)($index / $maxPerRow);
+                $col = $index % $maxPerRow;
+                
+                // Calculate X and Y positions
+                $currentX = $startX + ($col * ($cardWidth + $imagePadding));
+                $currentY = $padding + $topHeaderHeight + ($row * ($cardHeight + $imagePadding));
                 
                 $entry = $vote->entry;
                 $imagePath = $entry->image ? storage_path('app/public/' . $entry->image) : null;
@@ -387,16 +339,10 @@ class FinalVoteImageController extends Controller
                     }
                 }
                 
-                    // Clean up
-                    if ($entryImage && $imagePath && file_exists($imagePath)) {
-                        imagedestroy($entryImage);
-                    }
-                    
-                    $currentX += $cardWidth + $imagePadding;
+                // Clean up
+                if ($entryImage && $imagePath && file_exists($imagePath)) {
+                    imagedestroy($entryImage);
                 }
-                
-                // Move to next category
-                $currentY = $rowStartY + $cardHeight + ($padding * 2);
             }
         
             // Clear any output before sending headers
