@@ -44,7 +44,7 @@
                             Limited Access
                         </h3>
                         <p class="fi-section-header-description has-text-centered">
-                            Congratulations! You found the dashboard page. Contact an administrator if you need additional permissions.
+                            Congratulations! You found the dashboard page. Contact an administrator if you need additional permissions. If you are here after logging in, the redirection may have failed. Please navigate to the <a href="/">homepage</a> and try again.
                         </p>
                     </div>
                 </div>
