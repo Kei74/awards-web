@@ -72,6 +72,7 @@ class FinalVoting extends Component
             ->whereHas('category', function(Builder $query) {
                 $query->where('year', app('current-year'));
             })
+            ->where('active', true)
             ->with('entry.parent.parent')
             ->get()
             ->groupBy('category_id');
