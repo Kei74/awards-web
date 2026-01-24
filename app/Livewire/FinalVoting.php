@@ -14,6 +14,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Carbon\Carbon;
+use Livewire\Attributes\Renderless;
 
 #[Layout('components.layouts.app')]
 class FinalVoting extends Component
@@ -109,6 +110,7 @@ class FinalVoting extends Component
         return $count < $this->vote_limit;
     }
 
+    #[Renderless]
     public function createVote($categoryId, $nomineeId, $entryId)
     {
         if (! $this->canVoteMore($categoryId)) {
@@ -204,6 +206,7 @@ class FinalVoting extends Component
         ];
     }
 
+    #[Renderless]
     public function deleteVote($categoryId, $nomineeId, $entryId)
     {
         // Delete the vote
