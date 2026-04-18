@@ -12,6 +12,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Carbon\Carbon;
+use Livewire\Attributes\Renderless;
 
 #[Layout('components.layouts.app')]
 class NominationVoting extends Component
@@ -23,11 +24,11 @@ class NominationVoting extends Component
     public function mount()
     {
         $endDate = Option::get('nomination_voting_end_date');
-        
+
         if ($endDate && now()->isAfter(Carbon::parse($endDate))) {
             abort(403, 'Nomination voting has ended.');
         }
-        
+
         $this->loaded = true;
     }
 
@@ -66,34 +67,37 @@ class NominationVoting extends Component
     }
 
     // TODO: Add Cache before going live
+    #[Renderless]
     public function fetchEntriesByType($entryType)
     {
         return Entry::select('id', 'name', 'image', 'parent_id', 'theme_version')
-        ->with('item_names')
-        ->with('parent')
-        ->whereHas('category_eligibles.category', function ($query) use ($entryType) {
-            $query->where('entry_type', $entryType);
-        })
-        ->get()->map(function ($entry) {
-            $entry->searchable_string = $entry->name . ' ' . $entry->item_names->pluck('name')->implode(' ');
+            ->with('item_names')
+            ->with('parent')
+            ->whereHas('category_eligibles.category', function ($query) use ($entryType) {
+                $query->where('entry_type', $entryType);
+            })
+            ->get()->map(function ($entry) {
+                $entry->searchable_string = $entry->name . ' ' . $entry->item_names->pluck('name')->implode(' ');
 
-            if ($entry->parent) {
-                $entry->searchable_string .= ' ' . $entry->parent->name;
-            }
+                if ($entry->parent) {
+                    $entry->searchable_string .= ' ' . $entry->parent->name;
+                }
 
-            return $entry;
-        });
+                return $entry;
+            });
     }
 
     // Unused so far
+    #[Renderless]
     public function fetchEntriesByIds($ids)
     {
         return Entry::select('id', 'name', 'image')
-        ->whereIn('id', $ids)
-        ->get();
+            ->whereIn('id', $ids)
+            ->get();
     }
-    
+
     // TODO: Add Cache before going live
+    #[Renderless]
     public function fetchEligibles($selectedCategoryId)
     {
         // Set items as empty collection if category not present
@@ -102,11 +106,11 @@ class NominationVoting extends Component
         }
 
         return CategoryEligible::select('id', 'category_id', 'entry_id')
-        ->where('category_id', $selectedCategoryId)
-        ->where('active', true)
-        ->has('entry')
-        ->inRandomOrder()
-        ->get();
+            ->where('category_id', $selectedCategoryId)
+            ->where('active', true)
+            ->has('entry')
+            ->inRandomOrder()
+            ->get();
     }
 
     #[Computed]
@@ -119,11 +123,11 @@ class NominationVoting extends Component
     public function isPastNominationVotingEndDate()
     {
         $endDate = Option::get('nomination_voting_end_date');
-        
+
         if (!$endDate) {
             return false;
         }
-        
+
         return now()->isAfter(Carbon::parse($endDate));
     }
 
@@ -136,6 +140,7 @@ class NominationVoting extends Component
         return $count < 5;
     }
 
+    #[Renderless]
     public function createVote($categoryId, $eligibleId, $entryId)
     {
         if (! $this->canVoteMore($categoryId)) {
@@ -146,9 +151,11 @@ class NominationVoting extends Component
 
         // Find the category eligible entry
         $eligible = CategoryEligible::find($eligibleId);
-        if (! $eligible
+        if (
+            ! $eligible
             || $eligible->category_id != $categoryId
-            || $eligible->entry_id != $entryId) {
+            || $eligible->entry_id != $entryId
+        ) {
             return response()->json(['error' => 'Invalid Eligible'], 400); // Failed to validate eligible
         }
 
@@ -178,6 +185,7 @@ class NominationVoting extends Component
         return response()->json(['success' => 'Vote created']);
     }
 
+    #[Renderless]
     public function deleteVote($categoryId, $eligibleId, $entryId)
     {
         // Delete the vote
@@ -193,7 +201,6 @@ class NominationVoting extends Component
         $this->dispatch('vote-removed');
 
         return response()->json(['success' => 'Vote deleted']);
-
     }
 
     public function render()
